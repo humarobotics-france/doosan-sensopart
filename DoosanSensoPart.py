@@ -2,20 +2,20 @@
 """
 DoosanSensoPart class is used for the dialogue between a SensoPart camera and a Doosan robot.
 Please read the README.md file before use.
-Copyright (C) 2021 HumaRobotics
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+Copyright (C) 2022 HumaRobotics
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 # Keep thoses lines in order to test the code without a Doosan:
@@ -101,7 +101,7 @@ class DoosanSensoPart:
         Write 'cmd' in the socket
 
         Params:\n
-            - 'cmd': a SOLOMON TCP Protocol command
+            - 'cmd': a SensoPart TCP Protocol command
 	   - 'socket': Socket to write (None will write to default socket)
 
         Return:\n
@@ -384,6 +384,45 @@ class DoosanSensoPart:
         tp_log("result {0}".format(result))
         return (score, pos_x, pos_y, angle_rz)
 
+    def extract_data_2_tools(self, rx_data):
+        """
+        Extract data from the camera config with two tools (in order to detetect the two sides of an object for example). 
+        Format trame needed: score1;posx1;posy1;angle1;score2;posx2;posy2;angle2
+
+        Params:\n
+            - 'rx_data': data received from the camera (Format trame needed: score;posx;posy;angle)
+
+        Return:\n
+            - '(score, pos_x, pos_y, angle_rz)': tuple with object position (with the best score) information
+        """
+
+        result = rx_data.decode().split(';')
+
+        score1 = int(result[0])/1000 
+        pos_x1 = int(result[1])/1000 
+        pos_y1 = int(result[2])/1000 
+        angle_rz1 = int(result[3])/1000
+
+        score2 = int(result[4])/1000 
+        pos_x2 = int(result[5])/1000 
+        pos_y2 = int(result[6])/1000 
+        angle_rz2 = int(result[7])/1000
+
+        if score1 >= score2:
+            score = score1
+            pos_x = pos_x1
+            pos_y = pos_y1
+            angle_rz = angle_rz1
+        else:
+            score = score2
+            pos_x = pos_x2
+            pos_y = pos_y2
+            angle_rz = angle_rz2
+
+        # tp_popup("result {0}".format(result))
+        tp_log("result {0}".format(result))
+        return (score, pos_x, pos_y, angle_rz)
+
     def extract_3D_data(self, rx_data):
         """
         Extract 3D data from the camera. Format trame needed: score;posx;posy;anglex;angley;anglez
@@ -410,3 +449,11 @@ class DoosanSensoPart:
         # tp_popup("result {0}".format(result))
         tp_log("result {0}".format(result))
         return (score, pos_x, pos_y, pos_z, eul[0], eul[1], eul[2])
+
+    def change_job(self, num_job):
+        """Send `CJB+num_job` to the camera in order to change the job number"""
+
+        cmd = "CJB" + "{0:0=3d}".format(num_job)
+
+        self.write(cmd)
+        tp_log("Change job camera (job = {})".format(num_job))
